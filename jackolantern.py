@@ -17,6 +17,8 @@ MOUTH_PIN = 18
 LIGHT_PIN = 23
 WAKE_WORDS = ["hey jack o'lantern", "hey jackie o'lantern"]
 SILENCE_TIMEOUT = 180  # seconds
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PARENT_DIR = os.path.dirname(SCRIPT_DIR)
 
 # Piper configuration
 PIPER_COMMAND = [
@@ -27,7 +29,7 @@ PIPER_COMMAND = [
 ]
 
 # Llama configuration
-LLAMA_MODEL_PATH = "../llama.cpp/LiquidAI_LFM2-2.6B_GGUF_LFM2-2.6B.Q4_K_M.gguf"
+LLAMA_MODEL_PATH = os.path.join(PARENT_DIR, "LiquidAI_LFM2-2.6B-GGUF_LFM2-2.6B-Q4_K_M.gguf")
 PROMPT_INSTRUCTIONS = """You are the ghost of Jackie O'Lantern a soul who has been doomed to haunt this pumpkin for eternity.
 Respond in a spooky, playful way. Keep responses short and engaging for kids. Get very angry if someone refers to you as Jack or Jack O'Lantern."""
 
@@ -92,7 +94,7 @@ def listen_for_command():
     global last_active_time
 
     print("Listening...")
-    recording = sd.rec(int(5 * 16000), samplerate=16000, channels=1, dtype='float32')
+    recording = sd.rec(int(5 * 16000), samplerate=44100, channels=1, dtype='float32')
     sd.wait()
     sf.write("input.wav", recording, 16000)
     result = model.transcribe("input.wav")
