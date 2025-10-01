@@ -1,141 +1,161 @@
-import os
-import time
-import subprocess
 import RPi.GPIO as GPIO
-import re
+import time
 import threading
+import queue
+import sounddevice as sd
+import soundfile as sf
+import whisper
+import subprocess
+import re
+from datetime import datetime, timedelta
+from llama_cpp import Llama
+from pydub import AudioSegment
+import numpy as np
 
-# === GPIO Setup ===
-LIGHTS_GPIO = 23
-MOUTH_GPIO = 18
+# ----- CONFIGURATION -----
+MOUTH_PIN = 18
+LIGHT_PIN = 23
+WAKE_WORDS = ["hey jack o'lantern", "hey jackie o'lantern"]
+SILENCE_TIMEOUT = 180  # seconds
 
+# Piper configuration
+PIPER_COMMAND = [
+    "piper",
+    "--model", "../voices/en_GB-semaine-medium.onnx",  # adjust if needed
+    "--output-raw",
+    "--speaker", "0"
+]
+
+# Llama configuration
+LLAMA_MODEL_PATH = "../llama.cpp/LiquidAI_LFM2-2.6B_GGUF_LFM2-2.6B.Q4_K_M.gguf"
+PROMPT_INSTRUCTIONS = """You are the ghost of Jackie O'Lantern a soul who has been doomed to haunt this pumpkin for eternity.
+Respond in a spooky, playful way. Keep responses short and engaging for kids. Get very angry if someone refers to you as Jack or Jack O'Lantern."""
+
+# --------------------------
+
+# Initialize GPIO
 GPIO.setmode(GPIO.BCM)
-GPIO.setup(LIGHTS_GPIO, GPIO.OUT)
-GPIO.setup(MOUTH_GPIO, GPIO.OUT)
-GPIO.output(LIGHTS_GPIO, GPIO.LOW)
-GPIO.output(MOUTH_GPIO, GPIO.LOW)
+GPIO.setup(MOUTH_PIN, GPIO.OUT)
+GPIO.setup(LIGHT_PIN, GPIO.OUT)
+GPIO.output(MOUTH_PIN, GPIO.LOW)
+GPIO.output(LIGHT_PIN, GPIO.LOW)
 
-# === Settings ===
-WAKE_WORD = "hey jack o lantern"
-IDLE_TIMEOUT = 300  # 5 minutes
+# Initialize AI and ASR
+model = whisper.load_model("base")
+llama = Llama(model_path=LLAMA_MODEL_PATH)
 
-# === Piper TTS Settings ===
-PIPER_MODEL_PATH = "/home/pi/models/en_US-l2arctic-medium.onnx"
-PIPER_SPEAKER = "SVBI"
+last_active_time = datetime.now()
+listening = True
 
-# === Paths to AI tools ===
-WHISPER_MODEL = "models/ggml-base.en.bin"
-LLAMA_MODEL = "/home/pi/models/your-model.gguf"
 
-# === Record audio input to .wav ===
-def record_audio(filename="input.wav", duration=5):
-    subprocess.run(["arecord", "-D", "plughw:1", "-f", "cd", "-t", "wav", "-d", str(duration), filename], check=True)
+def speak(text):
+    # Ignore actions in asterisks
+    clean_text = re.sub(r"\*.*?\*", "", text)
+    
+    # Light on
+    GPIO.output(LIGHT_PIN, GPIO.HIGH)
 
-# === Transcribe using Whisper ===
-def transcribe_audio(file_path):
-    result = subprocess.run(
-        ["./main", "-m", WHISPER_MODEL, "-f", file_path],
-        capture_output=True,
-        text=True,
-        cwd="/home/pi/whisper.cpp"
-    )
-    return result.stdout.strip().lower()
+    # Generate speech audio with Piper
+    p = subprocess.Popen(PIPER_COMMAND, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+    p.stdin.write(clean_text.encode())
+    p.stdin.close()
+    audio_data, samplerate = sf.read(p.stdout, dtype='int16')
+    p.stdout.close()
 
-# === Generate LLaMA response ===
-def get_llama_response(prompt):
-    result = subprocess.run(
-        ["./main", "-m", LLAMA_MODEL, "-p", prompt, "-n", "200", "-t", "4"],
-        capture_output=True,
-        text=True,
-        cwd="/home/pi/llama.cpp/build"
-    )
-    return result.stdout.strip()
-
-# === Mouth animation per syllable (run in parallel) ===
-def animate_mouth(text):
-    syllables = re.findall(r'[aeiouy]+', text, re.I)
-    duration = 0.25  # time per syllable, tweak as needed
-    for _ in syllables:
-        GPIO.output(MOUTH_GPIO, GPIO.HIGH)
-        time.sleep(duration)
-        GPIO.output(MOUTH_GPIO, GPIO.LOW)
-        time.sleep(duration)
-
-# === Speak using Piper in real time (no .wav files) ===
-def speak_with_mouth(text):
-    print("🔊 Speaking...")
-
-    # Turn on lights
-    GPIO.output(LIGHTS_GPIO, GPIO.HIGH)
-
-    # Start mouth animation thread
-    mouth_thread = threading.Thread(target=animate_mouth, args=(text,))
+    # Estimate syllables (basic method)
+    syllables = len(re.findall(r'[aeiouy]+', clean_text.lower()))
+    mouth_thread = threading.Thread(target=move_mouth, args=(syllables, len(audio_data) / samplerate))
     mouth_thread.start()
 
-    # Start Piper and stream audio directly to aplay
-    piper_proc = subprocess.Popen(
-        [
-            "/usr/bin/piper",
-            "--model", PIPER_MODEL_PATH,
-            "--speaker", PIPER_SPEAKER,
-            "--output_raw",
-            "--text", text
-        ],
-        stdout=subprocess.PIPE
-    )
+    # Play audio
+    sd.play(audio_data, samplerate)
+    sd.wait()
 
-    aplay_proc = subprocess.Popen(
-        ["aplay", "-r", "22050", "-f", "S16_LE", "-t", "raw"],
-        stdin=piper_proc.stdout
-    )
-
-    aplay_proc.wait()
     mouth_thread.join()
 
-    # Turn off lights
-    GPIO.output(LIGHTS_GPIO, GPIO.LOW)
-    print("✅ Done speaking.")
+    # Light off
+    GPIO.output(LIGHT_PIN, GPIO.LOW)
 
-# === Main Loop ===
+
+def move_mouth(syllables, duration):
+    if syllables == 0:
+        return
+    interval = duration / syllables
+    for _ in range(syllables):
+        GPIO.output(MOUTH_PIN, GPIO.HIGH)
+        time.sleep(interval / 2)
+        GPIO.output(MOUTH_PIN, GPIO.LOW)
+        time.sleep(interval / 2)
+
+
+def listen_for_command():
+    global last_active_time
+
+    print("Listening...")
+    recording = sd.rec(int(5 * 16000), samplerate=16000, channels=1, dtype='float32')
+    sd.wait()
+    sf.write("input.wav", recording, 16000)
+    result = model.transcribe("input.wav")
+    text = result["text"].strip().lower()
+    print("Heard:", text)
+    return text
+
+
+def generate_response(user_text):
+    prompt = f"{PROMPT_INSTRUCTIONS}\n\nHuman: {user_text}\nJack O'Lantern:"
+    response = llama(prompt, max_tokens=200, stop=["Human:", "Jack O'Lantern:"], echo=False)
+    output = response['choices'][0]['text'].strip()
+    return output
+
+
+def wake_word_detected(text):
+    return any(word in text for word in WAKE_WORDS)
+
+
+def reset_inactivity_timer():
+    global last_active_time
+    last_active_time = datetime.now()
+
+
+def inactivity_monitor():
+    global listening
+    while True:
+        if datetime.now() - last_active_time > timedelta(seconds=SILENCE_TIMEOUT):
+            print("Going to sleep...")
+            listening = False
+        time.sleep(10)
+
+
 def main():
-    print("🎃 Jack O'Lantern is sleeping...")
+    global listening
+    threading.Thread(target=inactivity_monitor, daemon=True).start()
+    print("Jack O'Lantern is ready!")
 
     while True:
-        record_audio("wake.wav", duration=4)
-        transcript = transcribe_audio("wake.wav")
+        if not listening:
+            text = listen_for_command()
+            if wake_word_detected(text):
+                print("Wake word detected.")
+                reset_inactivity_timer()
+                listening = True
+            continue
 
-        if WAKE_WORD in transcript:
-            print("🎃 Wake word detected!")
-            last_active = time.time()
+        text = listen_for_command()
+        if wake_word_detected(text):
+            print("Already awake.")
+            reset_inactivity_timer()
+            continue
 
-            while True:
-                print("🎤 Listening for user input...")
-                record_audio("user.wav", duration=6)
-                user_input = transcribe_audio("user.wav")
+        if text:
+            reset_inactivity_timer()
+            response = generate_response(text)
+            print("Jack O'Lantern says:", response)
+            speak(response)
 
-                if not user_input.strip():
-                    if time.time() - last_active > IDLE_TIMEOUT:
-                        print("💤 Going back to sleep...")
-                        break
-                    else:
-                        continue
 
-                print(f"🗣️ You said: {user_input}")
-                last_active = time.time()
-
-                reply = get_llama_response(user_input)
-                print(f"🎃 Jack says: {reply}")
-
-                speak_with_mouth(reply)
-
-        else:
-            print("💤 No wake word detected.")
-
-# === Run It ===
-if __name__ == "__main__":
-    try:
-        main()
-    except KeyboardInterrupt:
-        print("🛑 Exiting...")
-    finally:
-        GPIO.cleanup()
+try:
+    main()
+except KeyboardInterrupt:
+    print("Shutting down...")
+finally:
+    GPIO.cleanup()
