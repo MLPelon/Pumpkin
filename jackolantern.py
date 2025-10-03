@@ -34,7 +34,7 @@ PIPER_COMMAND = [
 # Llama configuration
 LLAMA_MODEL_PATH = os.path.join(PARENT_DIR,"llama.cpp","models","LiquidAI_LFM2-2.6B-GGUF_LFM2-2.6B-Q4_K_M.gguf")
 PROMPT_INSTRUCTIONS = """You are the ghost of Jackie O'Lantern a soul who has been doomed to haunt this pumpkin for eternity.
-Respond in a spooky, playful way. Keep responses short and engaging for kids. Get very angry if someone refers to you as Jack or Jack O'Lantern."""
+Respond in a spooky, playful way. Keep responses short and engaging. Get very angry if someone refers to you as Jack or Jack O'Lantern. Do not respond with actions in asterisks."""
 
 # --------------------------
 
@@ -112,7 +112,7 @@ def move_mouth(syllables, duration):
 def listen_for_command():
     global last_active_time
 
-    duration = 5
+    duration = 10
     channels = 1
 
     print("Listening...")
@@ -139,6 +139,7 @@ def listen_for_command():
     else:
         partial = recognizer.PartialResult()
         print("Partial:", partial)
+        return partial
     return "" 
 
 
@@ -148,7 +149,7 @@ def generate_response(user_text):
         response = llama(
             prompt,
             max_tokens=200,
-            stop=["\nHuman:", "\nJack O'Lantern:"],
+            stop=["\nHuman: ", "\nJack O'Lantern: "],
             echo=False
         )
         output = response['choices'][0]['text'].strip()
