@@ -159,6 +159,8 @@ def generate_response(user_text):
     def on_new_token(token: str):
         print(token, end='', flush=True)   # Stream tokens live to console
         output_text.append(token)
+        print(token)
+        speak(token)
 
     response = llama.create_chat_completion(
         messages=conversation,
@@ -170,10 +172,8 @@ def generate_response(user_text):
 
     message = "".join(output_text).strip()
     conversation.append({"role": "assistant", "content": message})
-
-    print()  # newline after done streaming
    
-    return message
+    return
 
 
 def wake_word_detected(text):
@@ -218,8 +218,6 @@ def main():
         if text:
             reset_inactivity_timer()
             response = generate_response(text)
-            print("Jack O'Lantern says:", response)
-            speak(response)
 
 
 try:
