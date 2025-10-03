@@ -52,7 +52,11 @@ VOSK_RATE = 16000
 
 # Initialize AI and ASR
 vosk_model = Model(os.path.join(PARENT_DIR,"ttsmodels"))
-llama = Llama(model_path=LLAMA_MODEL_PATH)
+llama = Llama(
+    model_path=LLAMA_MODEL_PATH,
+    chat_format="chatml",  # or "llama-2" "chatml", "openchat", depending on the model
+    n_threads=4,
+)
 
 last_active_time = datetime.now()
 listening = True
