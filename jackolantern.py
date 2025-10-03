@@ -152,7 +152,8 @@ def listen_for_command():
     return "" 
 
 
-conversation.append({"role": "user", "content": user_text})
+def generate_response(user_text):
+    conversation.append({"role": "user", "content": user_text})
     output_text = []
 
     response_stream = llama.create_chat_completion(
