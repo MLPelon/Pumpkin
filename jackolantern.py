@@ -31,7 +31,7 @@ PIPER_COMMAND = [
 ]
 
 # Llama configuration
-LLAMA_MODEL_PATH = os.path.join(PARENT_DIR, "LiquidAI_LFM2-2.6B-GGUF_LFM2-2.6B-Q4_K_M.gguf")
+LLAMA_MODEL_PATH = os.path.join(PARENT_DIR,"llama.cpp","models","LiquidAI_LFM2-2.6B-GGUF_LFM2-2.6B-Q4_K_M.gguf")
 PROMPT_INSTRUCTIONS = """You are the ghost of Jackie O'Lantern a soul who has been doomed to haunt this pumpkin for eternity.
 Respond in a spooky, playful way. Keep responses short and engaging for kids. Get very angry if someone refers to you as Jack or Jack O'Lantern."""
 
@@ -44,13 +44,12 @@ GPIO.setup(LIGHT_PIN, GPIO.OUT)
 GPIO.output(MOUTH_PIN, GPIO.LOW)
 GPIO.output(LIGHT_PIN, GPIO.LOW)
 
-vosk_model = Model(os.path.join(PARENT_DIR,"ttsmodels")
 # Samplerate settings
 MIC_RATE = 44100
 VOSK_RATE = 16000
 
 # Initialize AI and ASR
-model = whisper.load_model("base")
+vosk_model = Model(os.path.join(PARENT_DIR,"ttsmodels")
 llama = Llama(model_path=LLAMA_MODEL_PATH)
 
 last_active_time = datetime.now()
@@ -59,7 +58,8 @@ listening = True
 
 def speak(text):
     # Ignore actions in asterisks
-    clean_text = re.sub(r"\*.*?\*", "", text)
+    #clean_text = re.sub(r"\*.*?\*", "", text)
+    clean_text = text
     
     # Light on
     GPIO.output(LIGHT_PIN, GPIO.HIGH)
@@ -68,12 +68,18 @@ def speak(text):
     p = subprocess.Popen(PIPER_COMMAND, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
     p.stdin.write(clean_text.encode())
     p.stdin.close()
-    audio_data, samplerate = sf.read(p.stdout, dtype='int16')
+
+    samplerate = 22050
+    channels = 1
+    dtype = np.int16
+    
+    audio_data = np.frombuffer(raw_bytes, dtype=dtype)
     p.stdout.close()
 
     # Estimate syllables (basic method)
     syllables = len(re.findall(r'[aeiouy]+', clean_text.lower()))
-    mouth_thread = threading.Thread(target=move_mouth, args=(syllables, len(audio_data) / samplerate))
+    duration = len(audio_data) / samplerate
+    mouth_thread = threading.Thread(target=move_mouth, args=(syllables, duration))
     mouth_thread.start()
 
     # Play audio
