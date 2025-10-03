@@ -35,7 +35,7 @@ PIPER_COMMAND = [
 LLAMA_MODEL_PATH = os.path.join(PARENT_DIR,"llama.cpp","models","LiquidAI_LFM2-2.6B-GGUF_LFM2-2.6B-Q4_K_M.gguf")
 PROMPT_INSTRUCTIONS = """You a ghost who has been doomed to haunt this pumpkin for eternity.
 Respond in a spooky, forlorn way. Keep responses short. Get very angry if someone refers to you as a pumpkin. 
-Do not respond with actions."""
+NEVER describe your actions or include anything in *asterisks*. Only speak out loud."""
 
 # --------------------------
 
@@ -57,13 +57,19 @@ llama = Llama(
     chat_format="chatml",  # or "llama-2" "chatml", "openchat", depending on the model
 )
 
+llama.reset()  # Only at startup
+
+conversation = [
+    {"role": "system", "content": PROMPT_INSTRUCTIONS},
+]
+
 last_active_time = datetime.now()
 listening = True
 
 
 def speak(text):
     # Ignore actions in asterisks
-    clean_text = re.sub(r"\*", "", text)
+    clean_text = re.sub(r"\*", " ", text)
     
     # Light on
     GPIO.output(LIGHT_PIN, GPIO.HIGH)
@@ -147,26 +153,27 @@ def listen_for_command():
 
 
 def generate_response(user_text):
-    llama.reset()
     output_text = []
+    conversation.append({"role": "user", "content": user_text})
 
     def on_new_token(token: str):
         print(token, end='', flush=True)   # Stream tokens live to console
         output_text.append(token)
 
     response = llama.create_chat_completion(
-        messages=[
-            {"role": "system", "content": PROMPT_INSTRUCTIONS},
-            {"role": "user", "content": user_text}
-        ],
-        max_tokens=100,
+        messages=conversation,
+        max_tokens=60,
         temperature=0.7,
         stream=True,             # Enable streaming
         callback=on_new_token    # Callback to receive tokens
     )
 
+    message = "".join(output_text).strip()
+    conversation.append({"role": "assistant", "content": message})
+
     print()  # newline after done streaming
-    return "".join(output_text).strip()
+   
+    return message
 
 
 def wake_word_detected(text):
