@@ -35,8 +35,7 @@ PIPER_COMMAND = [
 LLAMA_MODEL_PATH = os.path.join(PARENT_DIR,"llama.cpp","models","LiquidAI_LFM2-2.6B-GGUF_LFM2-2.6B-Q4_K_M.gguf")
 PROMPT_INSTRUCTIONS = """You are the ghost of Jackie O'Lantern a soul who has been doomed to haunt this pumpkin for eternity.
 Respond in a spooky, playful way. Keep responses short and engaging. Get very angry if someone refers to you as Jack or Jack O'Lantern. 
-Do not respond with actions in asterisks. Do not include any asterisks in your responses.
-End every response with the token <|im_end|>"""
+Do not respond with actions in asterisks."""
 
 # --------------------------
 
@@ -61,8 +60,7 @@ listening = True
 
 def speak(text):
     # Ignore actions in asterisks
-    #clean_text = re.sub(r"\*.*?\*", "", text)
-    clean_text = text
+    clean_text = re.sub(r"\*.*?\*", "", text)
     
     # Light on
     GPIO.output(LIGHT_PIN, GPIO.HIGH)
@@ -151,7 +149,7 @@ def generate_response(user_text):
         response = llama(
             prompt,
             max_tokens=200,
-            stop=["<|im_end|>"],
+            stop=["\n\nHuman ","\nJack O'Lantern:"],
             echo=False
         )
         output = response['choices'][0]['text'].strip()
