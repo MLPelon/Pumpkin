@@ -54,7 +54,8 @@ VOSK_RATE = 16000
 vosk_model = Model(os.path.join(PARENT_DIR,"ttsmodels"))
 llama = Llama(
     model_path=LLAMA_MODEL_PATH,
-    chat_format="chatml",  # or "llama-2" "chatml", "openchat", depending on the model
+    chat_format="chatml",  # or "llama-2" "chatml", "openchat", depending on the model,
+    n_gpu_layers=0
 )
 
 llama.reset()  # Only at startup
@@ -155,29 +156,17 @@ def listen_for_command():
 
 def generate_response(user_text):
     conversation.append({"role": "user", "content": user_text})
-    output_text = []
 
-    response_stream = llama.create_chat_completion(
+    response = llama.create_chat_completion(
         messages=conversation,
-        max_tokens=60,
+        max_tokens=90,
         temperature=0.7,
-        stream=True  # Enable streaming
     )
 
-    print()  # Start new line for streamed output
-
-    for chunk in response_stream:
-        delta = chunk["choices"][0]["delta"]
-        if "content" in delta:
-            token = delta["content"]
-            print(token, end='', flush=True)
-            output_text.append(token)
-            speak(token)  # Optional: stream speech per token
-
-    message = "".join(output_text).strip()
-    print()  # newline after response
-
+    message = response["choices"][0]["message"]["content"].strip()
     conversation.append({"role": "assistant", "content": message})
+    print("Pumpkin: ",message)
+    speak(message)
 
 
 def wake_word_detected(text):
