@@ -12,6 +12,7 @@ from pydub import AudioSegment
 import numpy as np
 from vosk import Model, KaldiRecognizer
 from scipy.signal import resample
+import os
 
 # ----- CONFIGURATION -----
 MOUTH_PIN = 18
@@ -49,7 +50,7 @@ MIC_RATE = 44100
 VOSK_RATE = 16000
 
 # Initialize AI and ASR
-vosk_model = Model(os.path.join(PARENT_DIR,"ttsmodels")
+vosk_model = Model(os.path.join(PARENT_DIR,"ttsmodels"))
 llama = Llama(model_path=LLAMA_MODEL_PATH)
 
 last_active_time = datetime.now()
