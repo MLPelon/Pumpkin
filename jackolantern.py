@@ -147,6 +147,8 @@ def listen_for_command():
 
 
 def generate_response(user_text):
+    llama.reset()
+    
     response = llama.create_chat_completion(
         messages=[
             {"role": "system", "content": PROMPT_INSTRUCTIONS},
