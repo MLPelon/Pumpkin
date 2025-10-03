@@ -122,7 +122,7 @@ def move_mouth(syllables, duration):
 def listen_for_command():
     global last_active_time
 
-    duration = 10
+    duration = 7
     channels = 1
 
     print("Listening...")
