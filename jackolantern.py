@@ -152,6 +152,7 @@ def listen_for_command():
     return "" 
 
 
+
 def generate_response(user_text):
     conversation.append({"role": "user", "content": user_text})
     output_text = []
@@ -171,7 +172,7 @@ def generate_response(user_text):
             token = delta["content"]
             print(token, end='', flush=True)
             output_text.append(token)
-            speak(token)  # Stream each token to your speaker if you want
+            speak(token)  # Optional: stream speech per token
 
     message = "".join(output_text).strip()
     print()  # newline after response
