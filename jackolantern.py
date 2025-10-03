@@ -149,7 +149,7 @@ def generate_response(user_text):
         response = llama(
             prompt,
             max_tokens=200,
-            stop=["\nHuman: ", "\nJack O'Lantern: "],
+            stop=["<|im_end|>"],
             echo=False
         )
         output = response['choices'][0]['text'].strip()
