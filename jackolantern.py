@@ -144,19 +144,15 @@ def listen_for_command():
 
 
 def generate_response(user_text):
-    prompt = f"{PROMPT_INSTRUCTIONS}\n\nHuman: {user_text}\nJack O'Lantern:"
-    try:
-        response = llama(
-            prompt,
-            max_tokens=200,
-            stop=["\n\nHuman ","\nJack O'Lantern:"],
-            echo=False
-        )
-        output = response['choices'][0]['text'].strip()
-        return output
-    except Exception as e:
-        print("Llama generation error:", e)
-        return "..."
+    response = llama.create_chat_completion(
+        messages=[
+            {"role": "system", "content": PROMPT_INSTRUCTIONS},
+            {"role": "user", "content": user_text}
+        ],
+        max_tokens=200,
+        temperature=0.7,
+    )
+    return response["choices"][0]["message"]["content"].strip()
 
 
 def wake_word_detected(text):
