@@ -17,7 +17,7 @@ import os
 # ----- CONFIGURATION -----
 MOUTH_PIN = 18
 LIGHT_PIN = 23
-WAKE_WORDS = ["hey jack o'lantern", "hey jackie o'lantern", "hey pumpkin"]
+WAKE_WORDS = ["hey jack o'lantern", "hey pumpkin"]
 SILENCE_TIMEOUT = 180  # seconds
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PARENT_DIR = os.path.dirname(SCRIPT_DIR)
@@ -28,14 +28,14 @@ PIPER_COMMAND = [
     "piper",
     "--model", os.path.join(PARENT_DIR,"voices","en_GB-semaine-medium.onnx"),  # adjust if needed
     "--output-raw",
-    "--speaker", "0"
+    "--speaker", "1"
 ]
 
 # Llama configuration
 LLAMA_MODEL_PATH = os.path.join(PARENT_DIR,"llama.cpp","models","LiquidAI_LFM2-2.6B-GGUF_LFM2-2.6B-Q4_K_M.gguf")
-PROMPT_INSTRUCTIONS = """You are the ghost of Jackie O'Lantern a soul who has been doomed to haunt this pumpkin for eternity.
-Respond in a spooky, playful way. Keep responses short and engaging. Get very angry if someone refers to you as Jack or Jack O'Lantern. 
-Do not respond with actions in asterisks."""
+PROMPT_INSTRUCTIONS = """You a ghost who has been doomed to haunt this pumpkin for eternity.
+Respond in a spooky, forlorn way. Keep responses short. Get very angry if someone refers to you as a pumpkin. 
+Do not respond with actions."""
 
 # --------------------------
 
@@ -63,7 +63,7 @@ listening = True
 
 def speak(text):
     # Ignore actions in asterisks
-    clean_text = re.sub(r"\*.*?\*", "", text)
+    clean_text = re.sub(r"\*", "", text)
     
     # Light on
     GPIO.output(LIGHT_PIN, GPIO.HIGH)
@@ -154,7 +154,7 @@ def generate_response(user_text):
             {"role": "system", "content": PROMPT_INSTRUCTIONS},
             {"role": "user", "content": user_text}
         ],
-        max_tokens=200,
+        max_tokens=100,
         temperature=0.7,
     )
     return response["choices"][0]["message"]["content"].strip()
