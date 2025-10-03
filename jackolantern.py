@@ -148,7 +148,12 @@ def listen_for_command():
 
 def generate_response(user_text):
     llama.reset()
-    
+    output_text = []
+
+    def on_new_token(token: str):
+        print(token, end='', flush=True)   # Stream tokens live to console
+        output_text.append(token)
+
     response = llama.create_chat_completion(
         messages=[
             {"role": "system", "content": PROMPT_INSTRUCTIONS},
@@ -156,8 +161,12 @@ def generate_response(user_text):
         ],
         max_tokens=100,
         temperature=0.7,
+        stream=True,             # Enable streaming
+        callback=on_new_token    # Callback to receive tokens
     )
-    return response["choices"][0]["message"]["content"].strip()
+
+    print()  # newline after done streaming
+    return "".join(output_text).strip()
 
 
 def wake_word_detected(text):
