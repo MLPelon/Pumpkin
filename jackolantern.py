@@ -36,7 +36,7 @@ PIPER_COMMAND = [
 # Llama configuration
 LLAMA_MODEL_PATH = os.path.join(PARENT_DIR,"llama.cpp","models","LiquidAI_LFM2-2.6B-GGUF_LFM2-2.6B-Q4_K_M.gguf")
 PROMPT_INSTRUCTIONS = """You a ghost who has been doomed to haunt this pumpkin for eternity.
-Respond in a spooky, forlorn way. Keep responses short. Get very angry if someone refers to you as a pumpkin. 
+Respond in a spooky, forlorn way. Keep responses short - two sentences max. Do not use bad words. 
 NEVER describe your actions or include anything in *asterisks*. Only speak out loud."""
 
 # --------------------------
@@ -158,17 +158,45 @@ def listen_for_command():
 
 def generate_response(user_text):
     conversation.append({"role": "user", "content": user_text})
+    output_text = []
+    speak_buffer = []
 
-    response = llama.create_chat_completion(
+    response_stream = llama.create_chat_completion(
         messages=conversation,
-        max_tokens=90,
+        max_tokens=60,
         temperature=0.7,
+        stream=True
     )
 
-    message = response["choices"][0]["message"]["content"].strip()
+    print()  # Newline for readability
+
+    for chunk in response_stream:
+        delta = chunk["choices"][0]["delta"]
+        if "content" in delta:
+            token = delta["content"]
+            print(token, end='', flush=True)
+
+            output_text.append(token)
+            speak_buffer.append(token)
+
+            # Check for sentence-ending punctuation
+            if token in [".", ",", "!"]:
+                sentence = "".join(speak_buffer).strip()
+                if sentence:
+                    speak(sentence)
+                speak_buffer = []  # Clear buffer after speaking
+
+    # Speak any remaining text if punctuation never appeared
+    if speak_buffer:
+        sentence = "".join(speak_buffer).strip()
+        if sentence:
+            speak(sentence)
+
+    message = "".join(output_text).strip()
+    print()  # newline after response
+
     conversation.append({"role": "assistant", "content": message})
-    print("Pumpkin: ",message)
-    speak(message)
+    return message
 
 
 def wake_word_detected(text):
