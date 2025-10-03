@@ -26,7 +26,7 @@ PARENT_DIR = os.path.dirname(SCRIPT_DIR)
 # Piper configuration
 PIPER_COMMAND = [
     "piper",
-    "--model", "../voices/en_GB-semaine-medium.onnx",  # adjust if needed
+    "--model", os.path.join(PARENT_DIR,"voices","en_GB-semaine-medium.onnx"),  # adjust if needed
     "--output-raw",
     "--speaker", "0"
 ]
@@ -69,6 +69,11 @@ def speak(text):
     p = subprocess.Popen(PIPER_COMMAND, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
     p.stdin.write(clean_text.encode())
     p.stdin.close()
+
+    # Read all raw PCM bytes from stdout
+    raw_bytes = p.stdout.read()
+    p.stdout.close()
+    p.wait()
 
     samplerate = 22050
     channels = 1
