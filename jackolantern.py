@@ -30,6 +30,7 @@ PIPER_COMMAND = [
     "piper",
     "--model", os.path.join(PARENT_DIR,"voices","en_GB-semaine-medium.onnx"),  # adjust if needed
     "--output-raw",
+    "--use-cpu",
     "--speaker", "1"
 ]
 
