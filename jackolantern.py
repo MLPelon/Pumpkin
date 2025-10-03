@@ -14,6 +14,8 @@ from vosk import Model, KaldiRecognizer
 from scipy.signal import resample
 import os
 
+os.environ["LLAMA_CPP_FORCE_DISABLE_GPU"] = "1"
+
 # ----- CONFIGURATION -----
 MOUTH_PIN = 18
 LIGHT_PIN = 23
