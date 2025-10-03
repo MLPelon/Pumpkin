@@ -4,23 +4,23 @@ import threading
 import queue
 import sounddevice as sd
 import soundfile as sf
-import whisper
 import subprocess
 import re
 from datetime import datetime, timedelta
 from llama_cpp import Llama
 from pydub import AudioSegment
 import numpy as np
+from vosk import Model, KaldiRecognizer
+from scipy.signal import resample
 
 # ----- CONFIGURATION -----
 MOUTH_PIN = 18
 LIGHT_PIN = 23
-WAKE_WORDS = ["hey jack o'lantern", "hey jackie o'lantern"]
+WAKE_WORDS = ["hey jack o'lantern", "hey jackie o'lantern", "hey pumpkin"]
 SILENCE_TIMEOUT = 180  # seconds
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PARENT_DIR = os.path.dirname(SCRIPT_DIR)
 
-sd.default.device = 2
 
 # Piper configuration
 PIPER_COMMAND = [
@@ -43,6 +43,11 @@ GPIO.setup(MOUTH_PIN, GPIO.OUT)
 GPIO.setup(LIGHT_PIN, GPIO.OUT)
 GPIO.output(MOUTH_PIN, GPIO.LOW)
 GPIO.output(LIGHT_PIN, GPIO.LOW)
+
+vosk_model = Model(os.path.join(PARENT_DIR,"ttsmodels")
+# Samplerate settings
+MIC_RATE = 44100
+VOSK_RATE = 16000
 
 # Initialize AI and ASR
 model = whisper.load_model("base")
@@ -95,14 +100,34 @@ def move_mouth(syllables, duration):
 def listen_for_command():
     global last_active_time
 
+    duration = 5
+    channels = 1
+
     print("Listening...")
-    recording = sd.rec(int(5 * 16000), samplerate=44100, channels=1, dtype='float32')
-    sd.wait()
-    sf.write("input.wav", recording, 16000)
-    result = model.transcribe("input.wav")
-    text = result["text"].strip().lower()
-    print("Heard:", text)
-    return text
+    recording = sd.rec(int(duration * MIC_RATE), samplerate=MIC_RATE, channels=channels, dtype='int16')
+    sd.wait() 
+
+    if MIC_RATE != VOSK_RATE:
+        recording_float = recording.astype(np.float32)
+        num_samples = int(len(recording_float) * VOSK_RATE / MIC_RATE)
+        resampled = resample(recording_float, num_samples)
+        audio_data = resampled.astype(np.int16).tobytes()
+    else:
+        audio_data = recording.tobytes()
+
+    recognizer = KaldiRecognizer(vosk_model, VOSK_RATE)
+
+    if recognizer.AcceptWaveform(audio_data):
+        result = recognizer.Result()
+        text = re.search(r'"text" : "([^"]*)"', result)
+        if text:
+            recognized = text.group(1).strip().lower()
+            print("Heard:", recognized)
+            return recognized
+    else:
+        partial = recognizer.PartialResult()
+        print("Partial:", partial)
+    return "" 
 
 
 def generate_response(user_text):
@@ -113,6 +138,7 @@ def generate_response(user_text):
 
 
 def wake_word_detected(text):
+    text = text.lower()
     return any(word in text for word in WAKE_WORDS)
 
 
