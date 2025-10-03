@@ -144,9 +144,18 @@ def listen_for_command():
 
 def generate_response(user_text):
     prompt = f"{PROMPT_INSTRUCTIONS}\n\nHuman: {user_text}\nJack O'Lantern:"
-    response = llama(prompt, max_tokens=200, stop=["Human:", "Jack O'Lantern:"], echo=False)
-    output = response['choices'][0]['text'].strip()
-    return output
+    try:
+        response = llama(
+            prompt,
+            max_tokens=200,
+            #stop=["Human:", "Jack O'Lantern:"],  # you can try removing this line if error persists
+            echo=False
+        )
+        output = response['choices'][0]['text'].strip()
+        return output
+    except Exception as e:
+        print("Llama generation error:", e)
+        return "..."
 
 
 def wake_word_detected(text):
