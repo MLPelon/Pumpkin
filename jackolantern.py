@@ -16,6 +16,8 @@ import os
 
 os.environ["LLAMA_CPP_FORCE_DISABLE_GPU"] = "1"
 os.environ["CUDA_VISIBLE_DEVICES"] = ""
+os.environ["ORT_DISABLE_GPU"] = "1"
+os.environ["ONNX_RUNTIME_DISABLE_GPU"] = "1"
 
 # ----- CONFIGURATION -----
 MOUTH_PIN = 18
@@ -24,6 +26,11 @@ WAKE_WORDS = ["hey jack o'lantern", "hey pumpkin"]
 SILENCE_TIMEOUT = 180  # seconds
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PARENT_DIR = os.path.dirname(SCRIPT_DIR)
+
+env = os.environ.copy()
+env["CUDA_VISIBLE_DEVICES"] = ""
+env["ORT_DISABLE_GPU"] = "1"
+env["ONNX_RUNTIME_DISABLE_GPU"] = "1"
 
 
 # Piper configuration
@@ -34,6 +41,8 @@ PIPER_COMMAND = [
     "--use-cpu",
     "--speaker", "1"
 ]
+
+
 
 # Llama configuration
 LLAMA_MODEL_PATH = os.path.join(PARENT_DIR,"llama.cpp","models","LiquidAI_LFM2-2.6B-GGUF_LFM2-2.6B-Q4_K_M.gguf")
@@ -80,7 +89,12 @@ def speak(text):
     GPIO.output(LIGHT_PIN, GPIO.HIGH)
 
     # Generate speech audio with Piper
-    p = subprocess.Popen(PIPER_COMMAND, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+    p = subprocess.Popen(
+        PIPER_COMMAND,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        env=env
+    )
     p.stdin.write(clean_text.encode())
     p.stdin.close()
 
