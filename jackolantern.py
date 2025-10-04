@@ -15,6 +15,7 @@ from scipy.signal import resample
 import os
 
 os.environ["LLAMA_CPP_FORCE_DISABLE_GPU"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
 # ----- CONFIGURATION -----
 MOUTH_PIN = 18
