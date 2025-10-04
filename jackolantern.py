@@ -42,7 +42,7 @@ PIPER_COMMAND = [
     "--speaker", "1"
 ]
 
-
+piper_process = subprocess.Popen(PIPER_COMMAND, stdin=subprocess.PIPE, stdout=subprocess.PIPE, env=env)
 
 # Llama configuration
 LLAMA_MODEL_PATH = os.path.join(PARENT_DIR,"llama.cpp","models","LiquidAI_LFM2-2.6B-GGUF_LFM2-2.6B-Q4_K_M.gguf")
@@ -88,27 +88,20 @@ def speak(text):
     # Light on
     GPIO.output(LIGHT_PIN, GPIO.HIGH)
 
-    # Generate speech audio with Piper
-    p = subprocess.Popen(
-        PIPER_COMMAND,
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        env=env
-    )
-    p.stdin.write(clean_text.encode())
-    p.stdin.close()
+    piper_process.stdin.write(clean_text.encode())
+    piper_process.stdin.flush()
 
     # Read all raw PCM bytes from stdout
     raw_bytes = p.stdout.read()
-    p.stdout.close()
-    p.wait()
+    piper_process.stdout.close()
+    piper_process.wait()
 
     samplerate = 22050
     channels = 1
     dtype = np.int16
     
     audio_data = np.frombuffer(raw_bytes, dtype=dtype)
-    p.stdout.close()
+    piper_process.stdout.close()
 
     # Estimate syllables (basic method)
     syllables = len(re.findall(r'[aeiouy]+', clean_text.lower()))
